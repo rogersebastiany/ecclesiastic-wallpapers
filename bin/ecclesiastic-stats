@@ -1,0 +1,18 @@
+#!/bin/bash
+# Show art preference statistics
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/../ecclesiastic.conf"
+
+echo "=== Ecclesiastic Wallpapers ==="
+echo ""
+echo "Pool: $(find "$POOL_DIR" -maxdepth 1 -name '*.jpg' 2>/dev/null | wc -l) paintings"
+echo "Composed: $(find "$COMPOSE_DIR" -name '*.jpg' 2>/dev/null | wc -l) cached"
+echo "Shown: $(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM paintings;" 2>/dev/null) times"
+echo "Liked: $(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM paintings WHERE rating = 1;" 2>/dev/null)"
+echo ""
+echo "--- Likes by style ---"
+sqlite3 -column -header "$DB_PATH" "SELECT style, COUNT(*) as likes FROM paintings WHERE rating = 1 GROUP BY style ORDER BY likes DESC;" 2>/dev/null
+echo ""
+echo "--- Most shown styles ---"
+sqlite3 -column -header "$DB_PATH" "SELECT style, COUNT(*) as shown FROM paintings GROUP BY style ORDER BY shown DESC LIMIT 10;" 2>/dev/null

@@ -1,0 +1,89 @@
+#!/bin/bash
+# Prefetch art wallpapers — persistent pool, skips duplicates
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/../ecclesiastic.conf"
+
+BATCH_SIZE=${1:-${PREFETCH_BATCH:-16}}
+
+mkdir -p "$POOL_DIR" "$META_DIR"
+
+fetch_one() {
+    local style="$1"
+    local encoded=$(echo "$style" | sed 's/ /+/g')
+
+    local ids=$(curl -sL "https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&medium=Paintings&q=${encoded}" \
+        | python3 -c "
+import sys, json, random
+d = json.load(sys.stdin)
+ids = d.get('objectIDs', [])
+if not ids: sys.exit(1)
+sample = random.sample(ids, min(10, len(ids)))
+print(' '.join(str(i) for i in sample))
+" 2>/dev/null)
+
+    [ -z "$ids" ] && return 1
+
+    for oid in $ids; do
+        local fname="met-${oid}.jpg"
+        local dest="$POOL_DIR/$fname"
+        [ -f "$dest" ] && continue
+
+        local data=$(curl -sL "https://collectionapi.metmuseum.org/public/collection/v1/objects/${oid}")
+        local img=$(echo "$data" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+img = d.get('primaryImage', '')
+if img and d.get('isPublicDomain', False): print(img)
+" 2>/dev/null)
+
+        [ -z "$img" ] && continue
+
+        curl -sL "$img" -o "$dest"
+        [ -s "$dest" ] || { rm -f "$dest"; continue; }
+
+        local min_size=$(identify -format '%[fx:min(w,h)]' "$dest" 2>/dev/null || echo "0")
+        if [ "$min_size" -lt "${MIN_SIZE:-800}" ] 2>/dev/null; then
+            rm -f "$dest"
+            continue
+        fi
+
+        local title=$(echo "$data" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('title','Unknown'))" 2>/dev/null)
+        local artist=$(echo "$data" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('artistDisplayName','') or 'Unknown Artist')" 2>/dev/null)
+        local date=$(echo "$data" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('objectDate','') or 'Date unknown')" 2>/dev/null)
+        local medium=$(echo "$data" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('medium',''))" 2>/dev/null)
+        local dims=$(echo "$data" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('dimensions',''))" 2>/dev/null)
+        local credit=$(echo "$data" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('creditLine',''))" 2>/dev/null)
+        local url=$(echo "$data" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('objectURL',''))" 2>/dev/null)
+
+        cat > "$META_DIR/${fname}.meta" <<METAEOF
+title=${title}
+artist=${artist}
+date=${date}
+style=${style}
+medium=${medium}
+dimensions=${dims}
+credit=${credit}
+url=${url}
+METAEOF
+
+        echo "[prefetch] ${style}: ${title} — ${artist}"
+        return 0
+    done
+    return 1
+}
+
+fetched=0
+attempts=0
+max_attempts=$((BATCH_SIZE * 3))
+
+while [ "$fetched" -lt "$BATCH_SIZE" ] && [ "$attempts" -lt "$max_attempts" ]; do
+    style="${STYLES[$((RANDOM % ${#STYLES[@]}))]}"
+    if fetch_one "$style"; then
+        fetched=$((fetched + 1))
+    fi
+    attempts=$((attempts + 1))
+    sleep 1
+done
+
+echo "[prefetch] Done: ${fetched}/${BATCH_SIZE} paintings (pool: $(ls "$POOL_DIR"/met-*.jpg 2>/dev/null | wc -l) total)"

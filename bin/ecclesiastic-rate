@@ -1,0 +1,17 @@
+#!/bin/bash
+# Rate a painting: ecclesiastic-rate <met_id> <1|-1>
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/platform.sh"
+source "${SCRIPT_DIR}/../ecclesiastic.conf"
+
+MET_ID="$1"
+RATING="$2"
+
+[ -z "$MET_ID" ] || [ -z "$RATING" ] && exit 1
+
+sqlite3 "$DB_PATH" "UPDATE paintings SET rating = $RATING, rated_at = datetime('now','localtime') WHERE met_id = '$MET_ID' AND rated_at IS NULL;"
+
+if [ "$RATING" -eq 1 ]; then
+    send_notification "Ecclesiastic" "Liked!" "" ""
+fi

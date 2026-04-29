@@ -1,0 +1,15 @@
+#!/bin/bash
+# Compose art wallpaper: blurred dark background + centered sharp painting
+
+INPUT="$1"
+RES="${2:-1920x1200}"
+OUTPUT="$3"
+
+[ -f "$INPUT" ] || exit 1
+[ -z "$OUTPUT" ] && OUTPUT="${INPUT%.jpg}-composed.jpg"
+
+magick "$INPUT" -resize "${RES}^" -gravity center -extent "${RES}" \
+    -blur 0x30 -modulate 40 \
+    \( "$INPUT" -resize "${RES}" \) \
+    -gravity center -compose over -composite \
+    "$OUTPUT"

@@ -1,0 +1,30 @@
+#!/bin/bash
+# Show notification for the current wallpaper(s)
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/platform.sh"
+source "${SCRIPT_DIR}/../ecclesiastic.conf"
+
+current=$(get_current_wallpaper)
+[ -z "$current" ] && exit 1
+
+body=""
+icon=""
+for img in $current; do
+    fname=$(basename "$img" | sed 's/-[0-9]*x[0-9]*//')
+    meta="$META_DIR/${fname}.meta"
+    [ -f "$meta" ] || continue
+
+    title=$(grep '^title=' "$meta" | cut -d= -f2-)
+    artist=$(grep '^artist=' "$meta" | cut -d= -f2-)
+    date=$(grep '^date=' "$meta" | cut -d= -f2-)
+    style=$(grep '^style=' "$meta" | cut -d= -f2-)
+    medium=$(grep '^medium=' "$meta" | cut -d= -f2-)
+
+    [ -z "$icon" ] && icon="$img"
+    [ -n "$body" ] && body="${body}\n\n"
+    body="${body}<span size='large'><b>${title}</b></span>\n<b>${artist}</b>\n${date} · ${style^}\n<i>${medium}</i>"
+done
+
+[ -z "$body" ] && exit 1
+send_notification " " "$body" "$icon" ""
