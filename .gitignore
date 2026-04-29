@@ -1,4 +1,5 @@
 *.jpg
+!screenshots/*.jpg
 *.meta
 *.db
 composed/

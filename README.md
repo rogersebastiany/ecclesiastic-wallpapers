@@ -10,6 +10,14 @@ A notification shows the painting's title, artist, year, style, and medium. Clic
 ![](https://img.shields.io/badge/API%20key-none-green)
 ![](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-lightgrey)
 
+<p align="center">
+  <img src="screenshots/frame-01.jpg" width="100%" />
+</p>
+<p align="center">
+  <img src="screenshots/frame-02.jpg" width="49%" />
+  <img src="screenshots/frame-05.jpg" width="49%" />
+</p>
+
 ## How it works
 
 1. On boot, a systemd service prefetches paintings into `~/Pictures/ArtWallpapers/`
