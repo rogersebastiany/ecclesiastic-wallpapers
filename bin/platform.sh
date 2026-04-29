@@ -7,17 +7,24 @@ case "$(uname -s)" in
     *)      echo "Unsupported platform: $(uname -s)" >&2; exit 1 ;;
 esac
 
-get_monitor_count() {
-    case "$PLATFORM" in
-        linux) xrandr | grep " connected" | wc -l ;;
-        macos) system_profiler SPDisplaysDataType | grep -c "Resolution:" ;;
-    esac
+# macOS ships bash 3.2, no ${var^} — use tr instead
+upper_first() {
+    echo "$1" | sed 's/./\U&/'
+}
+
+# macOS has no shuf — fallback to awk
+shuffle_pick() {
+    if command -v shuf &>/dev/null; then
+        shuf -n1
+    else
+        awk 'BEGIN{srand()} {lines[NR]=$0} END{print lines[int(rand()*NR)+1]}'
+    fi
 }
 
 get_resolutions() {
     case "$PLATFORM" in
-        linux) xrandr | grep " connected" | grep -oP '\d+x\d+' ;;
-        macos) system_profiler SPDisplaysDataType | grep "Resolution:" | sed 's/.*: \([0-9]*\) x \([0-9]*\).*/\1x\2/' ;;
+        linux) xrandr | grep " connected" | grep -oE '[0-9]+x[0-9]+' ;;
+        macos) system_profiler SPDisplaysDataType 2>/dev/null | grep "Resolution:" | sed 's/.*: \([0-9]*\) x \([0-9]*\).*/\1x\2/' ;;
     esac
 }
 
@@ -25,10 +32,15 @@ set_wallpaper() {
     case "$PLATFORM" in
         linux) feh --bg-fill "$@" ;;
         macos)
-            local i=0
             for img in "$@"; do
-                osascript -e "tell application \"System Events\" to tell desktop $((i+1)) to set picture to POSIX file \"$img\""
-                i=$((i+1))
+                osascript <<APPLESCRIPT
+tell application "System Events"
+    set theDesktops to a reference to every desktop
+    repeat with aDesktop in theDesktops
+        set picture of aDesktop to POSIX file "$img"
+    end repeat
+end tell
+APPLESCRIPT
             done
             ;;
     esac
@@ -36,8 +48,8 @@ set_wallpaper() {
 
 get_current_wallpaper() {
     case "$PLATFORM" in
-        linux) grep -oP "(?<=')[^']+\.jpg(?=')" ~/.fehbg 2>/dev/null ;;
-        macos) osascript -e 'tell application "System Events" to get picture of every desktop' 2>/dev/null | tr ',' '\n' | sed 's/^ //' ;;
+        linux) sed -n "s/.*'\(.*\.jpg\)'.*/\1/p" ~/.fehbg 2>/dev/null ;;
+        macos) osascript -e 'tell application "System Events" to get picture of desktop 1' 2>/dev/null ;;
     esac
 }
 
@@ -63,7 +75,13 @@ send_notification() {
             fi
             ;;
         macos)
-            osascript -e "display notification \"$body\" with title \"$title\""
+            # Strip pango/HTML markup for macOS native notifications
+            local clean_body=$(echo -e "$body" | sed 's/<[^>]*>//g')
+            if command -v terminal-notifier &>/dev/null; then
+                terminal-notifier -title "$title" -message "$clean_body" -contentImage "$icon" -group ecclesiastic
+            else
+                osascript -e "display notification \"$clean_body\" with title \"$title\""
+            fi
             ;;
     esac
 }

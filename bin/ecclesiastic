@@ -42,7 +42,7 @@ pick_from_pool() {
 
     [ -n "$exclude" ] && candidates=$(echo "$candidates" | grep -v "$exclude")
 
-    echo "$candidates" | shuf -n1
+    echo "$candidates" | shuffle_pick
 }
 
 fetch_live() {
@@ -160,7 +160,7 @@ notify_and_rate() {
         local medium=$(grep '^medium=' "$meta" | cut -d= -f2-)
 
         [ -n "$body" ] && body="${body}\n\n"
-        body="${body}<span size='large'><b>${title}</b></span>\n<b>${artist}</b>\n${date} · ${style^}\n<i>${medium}</i>"
+        body="${body}<span size='large'><b>${title}</b></span>\n<b>${artist}</b>\n${date} · $(upper_first "$style")\n<i>${medium}</i>"
         [ -z "$icon" ] && icon="$img"
     done
 

@@ -23,7 +23,7 @@ for img in $current; do
 
     [ -z "$icon" ] && icon="$img"
     [ -n "$body" ] && body="${body}\n\n"
-    body="${body}<span size='large'><b>${title}</b></span>\n<b>${artist}</b>\n${date} · ${style^}\n<i>${medium}</i>"
+    body="${body}<span size='large'><b>${title}</b></span>\n<b>${artist}</b>\n${date} · $(upper_first "$style")\n<i>${medium}</i>"
 done
 
 [ -z "$body" ] && exit 1

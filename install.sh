@@ -26,11 +26,18 @@ echo "Installing Ecclesiastic Wallpapers..."
 
 mkdir -p "$BIN_DIR" "$CONF_DIR"
 
+# portable sed -i (macOS needs '' arg, Linux does not)
+sedi() {
+    if [ "$(uname -s)" = "Darwin" ]; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
+
 # Copy config (don't overwrite existing)
 if [ ! -f "$CONF_DIR/ecclesiastic.conf" ]; then
     cp "$REPO_DIR/ecclesiastic.conf" "$CONF_DIR/ecclesiastic.conf"
-    # Point scripts to user config location
-    sed -i "s|../ecclesiastic.conf|$CONF_DIR/ecclesiastic.conf|g" "$REPO_DIR"/bin/*
 fi
 
 # Install scripts
@@ -41,7 +48,7 @@ done
 
 # Fix config path in installed scripts
 for script in "$BIN_DIR"/ecclesiastic*; do
-    sed -i "s|\${SCRIPT_DIR}/../ecclesiastic.conf|$CONF_DIR/ecclesiastic.conf|g" "$script"
+    sedi "s|\${SCRIPT_DIR}/../ecclesiastic.conf|$CONF_DIR/ecclesiastic.conf|g" "$script"
 done
 
 echo "Scripts installed to $BIN_DIR"
